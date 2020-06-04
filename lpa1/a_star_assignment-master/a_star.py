@@ -2,6 +2,7 @@ import math
 from dists import dists
 from dists import straight_line_dists_from_bucharest as line
 
+
 def getUpperStraightLine():
     straight_line = {}
     for key, value in line.items():
@@ -18,6 +19,25 @@ def getUpperDists():
             n_values.update({v[0].upper():v[1]})
         n_dist.update({key.upper() : n_values})
     return n_dist
+
+
+def validateCity(node, new_city):
+    ''' Valida se já passou por essa cidade,
+        olhando para os nós que são dicionários
+    '''
+    for n in node:
+        if(type(n) == dict):
+            if(list(n.keys())[0] == new_city):
+                return False
+    return True
+        
+
+def getPathList(node):
+    result = []
+    for n in node:
+        if(type(n) == dict):
+            result.append(n)
+    return result
 
 # goal sempre sera 'bucharest'
 # Criar um dicionario para o o caminho percorrido 
@@ -59,20 +79,6 @@ def a_star(start, goal='BUCHAREST'):
 
         if(goal == closest_city):
             print('FINISHED')
-            print(node)
-            break
-
-def validateCity(node, new_city):
-    ''' Valida se já passou por essa cidade,
-        olhando para os nós que são dicionários
-    '''
-    for n in node:
-        if(type(n) == dict):
-            if(list(n.keys())[0] == new_city):
-                return False
-    return True
-        
-
-    
-
-a_star(start='lugoj')
+            return getPathList(node)
+            
+print(a_star(start='lugoj'))
