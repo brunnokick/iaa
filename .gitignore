@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+lpa1/naive_bayes_assignment-master/emails/*
+
 # C extensions
 *.so
 

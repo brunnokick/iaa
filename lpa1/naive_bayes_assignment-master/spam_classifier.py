@@ -2,6 +2,17 @@ from collections import Counter, defaultdict
 from machine_learning import split_data
 import math, random, re, glob
 
+'''
+    Execucao com os parametros default    
+        Counter({(False, False): 715, (True, True): 89, 
+        (True, False): 50, (False, True): 22})
+   
+    Adicionado FROM e RECEIVED
+        Counter({(False, False): 689, (True, True): 117, 
+        (True, False): 14, (False, True): 10}     
+'''
+
+
 def tokenize(message):
     message = message.lower()                       # convert to lowercase
     all_words = re.findall("[a-z0-9']+", message)   # extract the words
@@ -77,17 +88,18 @@ def get_subject_data(path):
     data = []
 
     # regex for stripping out the leading "Subject:" and any spaces after it
-    subject_regex = re.compile(r"^Subject:\s+")
+    regex = re.compile(r"^(Subject:|From(:|)|Received:)\s+")
 
     # glob.glob returns every filename that matches the wildcarded path
     for fn in glob.glob(path):
         is_spam = "ham" not in fn
 
         with open(fn,'r',encoding='ISO-8859-1') as file:
+            email = []
             for line in file:
-                if line.startswith("Subject:"):
-                    subject = subject_regex.sub("", line).strip()
-                    data.append((subject, is_spam))
+                if re.match(regex, line):
+                    email.append(regex.sub("", line).strip())
+            data.append((' '.join(email), is_spam))
 
     return data
 
@@ -99,6 +111,8 @@ def train_and_test_model(path):
     data = get_subject_data(path)
     random.seed(0)      # just so you get the same answers as me
     train_data, test_data = split_data(data, 0.75)
+
+    print(f'Test data size: {len(test_data)}')
 
     classifier = NaiveBayesClassifier()
     classifier.train(train_data)
@@ -115,16 +129,16 @@ def train_and_test_model(path):
     spammiest_hams = list(filter(lambda row: not row[1], classified))[-5:]
     hammiest_spams = list(filter(lambda row: row[1], classified))[:5]
 
-    print("spammiest_hams", spammiest_hams)
-    print("hammiest_spams", hammiest_spams)
+    print("\nspammiest_hams", spammiest_hams)
+    print("\nhammiest_spams", hammiest_spams)
 
     words = sorted(classifier.word_probs, key=p_spam_given_word)
 
     spammiest_words = words[-5:]
     hammiest_words = words[:5]
 
-    print("spammiest_words", spammiest_words)
-    print("hammiest_words", hammiest_words)
+    print("\nspammiest_words", spammiest_words)
+    print("\nhammiest_words", hammiest_words)
 
 if __name__ == "__main__":
-    train_and_test_model(r"./emails/*/*")
+    train_and_test_model(r"lpa1/naive_bayes_assignment-master/emails/*/*")
