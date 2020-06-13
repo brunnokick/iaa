@@ -108,10 +108,12 @@ def p_spam_given_word(word_prob):
     return prob_if_spam / (prob_if_spam + prob_if_not_spam)
 
 def train_and_test_model(path):
-    data = get_subject_data(path)
     random.seed(0)      # just so you get the same answers as me
-    train_data, test_data = split_data(data, 0.75)
+    data = get_subject_data(path)
+    print(f'data: {len(data)}')
 
+    train_data, test_data = split_data(data, 0.75)
+    print(f'Train data size: {len(train_data)}')
     print(f'Test data size: {len(test_data)}')
 
     classifier = NaiveBayesClassifier()
