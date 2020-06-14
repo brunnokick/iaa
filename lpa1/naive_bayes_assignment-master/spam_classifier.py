@@ -1,15 +1,16 @@
 from collections import Counter, defaultdict
 from machine_learning import split_data
 import math, random, re, glob
-
+import pandas as pd
 '''
-    Execucao com os parametros default    
-        Counter({(False, False): 715, (True, True): 89, 
-        (True, False): 50, (False, True): 22})
+    Execucao com os parametros default
+    e com uma correcao sobre identificar somente o primeiro subject por email
+        Counter({(False, False): 673, (True, True): 85, 
+        (True, False): 46, (False, True): 26})
    
     Adicionado FROM e RECEIVED
-        Counter({(False, False): 689, (True, True): 117, 
-        (True, False): 14, (False, True): 10}     
+        Counter({(False, False): 687, (True, True): 111, 
+        (True, False): 20, (False, True): 12})
 '''
 
 
@@ -19,27 +20,28 @@ def tokenize(message):
     return set(all_words)                           # remove duplicates
 
 
-def count_words(training_set):
-    """training set consists of pairs (message, is_spam)"""
+def count_words(training_set) -> pd.DataFrame:
     counts = defaultdict(lambda: [0, 0])
     for message, is_spam in training_set:
         for word in tokenize(message):
             counts[word][0 if is_spam else 1] += 1
-    return counts
 
-def word_probabilities(counts, total_spams, total_non_spams, k=0.5):
-    """turn the word_counts into a list of triplets
-    w, p(w | spam) and p(w | ~spam)"""
-    return [(w,
-             (spam + k) / (total_spams + 2 * k),
-             (non_spam + k) / (total_non_spams + 2 * k))
-             for w, (spam, non_spam) in counts.items()]
+    df = pd.DataFrame(counts).T.rename(columns={0:'is_spam', 1:'not_spam'})
+    df['total'] = df['is_spam'] + df['not_spam']
+    df = df.sort_values(by='total')
+    return df
 
-def spam_probability(word_probs, message):
+def word_probabilities(row, total_spams, total_non_spams, k=0.5):
+    row['prob_is_spam'] = (row['is_spam'] + k) / (total_spams + 2 * k)
+    row['prob_not_spam'] = (row['not_spam'] + k) / (total_non_spams + 2 * k)
+    return row
+
+def spam_probability(df_word_probs, message):
+    # CONTINUE FROM HERE
     message_words = tokenize(message)
     log_prob_if_spam = log_prob_if_not_spam = 0.0
 
-    for word, prob_if_spam, prob_if_not_spam in word_probs:
+    for word, prob_if_spam, prob_if_not_spam in df_word_probs:
 
         # for each word in the message,
         # add the log probability of seeing it
@@ -62,7 +64,7 @@ class NaiveBayesClassifier:
 
     def __init__(self, k=0.5):
         self.k = k
-        self.word_probs = []
+        self.word_probs : pd.DataFrame = None
 
     def train(self, training_set):
 
@@ -73,8 +75,8 @@ class NaiveBayesClassifier:
         num_non_spams = len(training_set) - num_spams
 
         # run training data through our "pipeline"
-        word_counts = count_words(training_set)
-        self.word_probs = word_probabilities(word_counts,
+        df_word_counts = count_words(training_set)
+        self.word_probs = word_probabilities(df_word_counts,
                                              num_spams,
                                              num_non_spams,
                                              self.k)
@@ -84,10 +86,7 @@ class NaiveBayesClassifier:
 
 
 def get_subject_data(path):
-
     data = []
-
-    # regex for stripping out the leading "Subject:" and any spaces after it
     regex = re.compile(r"^(Subject:|From(:|)|Received:)\s+")
 
     # glob.glob returns every filename that matches the wildcarded path
