@@ -3,6 +3,10 @@ from machine_learning import split_data
 import math, random, re, glob
 import pandas as pd
 '''
+    data: 3302
+    Train data size: 2472
+    Test data size: 830
+
     Execucao com os parametros default
     e com uma correcao sobre identificar somente o primeiro subject por email
         Counter({(False, False): 673, (True, True): 85, 
@@ -11,6 +15,11 @@ import pandas as pd
     Adicionado FROM e RECEIVED
         Counter({(False, False): 687, (True, True): 111, 
         (True, False): 20, (False, True): 12})
+
+    Migracao para o PANDAS, foi necessário voltar para 
+        buscar somente o subject se não ia cagar com tudo.
+    Counter({(False, False): 632, (True, True): 82, 
+        (False, True): 67, (True, False): 49})
 '''
 
 
@@ -31,34 +40,43 @@ def count_words(training_set) -> pd.DataFrame:
     df = df.sort_values(by='total')
     return df
 
-def word_probabilities(row, total_spams, total_non_spams, k=0.5):
-    row['prob_is_spam'] = (row['is_spam'] + k) / (total_spams + 2 * k)
-    row['prob_not_spam'] = (row['not_spam'] + k) / (total_non_spams + 2 * k)
-    return row
+def word_probabilities(df, total_spams, total_non_spams, k=0.5):
+    df['prob_is_spam'] = (df['is_spam'] + k) / (total_spams + 2 * k)
+    df['prob_not_spam'] = (df['not_spam'] + k) / (total_non_spams + 2 * k)
+    return df
 
-def spam_probability(df_word_probs, message):
-    # CONTINUE FROM HERE
+def spam_probability(df_word_probs, message) -> float:
     message_words = tokenize(message)
+
+    ''' remove words that are in message but not in df_word_probs, 
+        because they will have NaN value on probs '''
+    remove_words = []
+    [remove_words.append(n) for n in message_words if n not in list(df_word_probs.index.to_list())]
+    [message_words.remove(n) for n in remove_words]
+
     log_prob_if_spam = log_prob_if_not_spam = 0.0
+    if(len(message_words) > 0):
+        # Log for words in message
+        prob_if_spam = [v[0] for v in df_word_probs.loc[message_words][['prob_is_spam']].values]
+        log_prob_if_spam = math.log(sum(prob_if_spam))
 
-    for word, prob_if_spam, prob_if_not_spam in df_word_probs:
+        prob_if_not_spam = [v[0] for v in df_word_probs.loc[message_words][['prob_not_spam']].values]
+        log_prob_if_not_spam = math.log(sum(prob_if_not_spam))
 
-        # for each word in the message,
-        # add the log probability of seeing it
-        if word in message_words:
-            log_prob_if_spam += math.log(prob_if_spam)
-            log_prob_if_not_spam += math.log(prob_if_not_spam)
+        # Log for words not in message
+        not_message_words = [n for n in df_word_probs.index.to_list() if n not in list(message_words)]
 
-        # for each word that's not in the message
-        # add the log probability of _not_ seeing it
-        else:
-            log_prob_if_spam += math.log(1.0 - prob_if_spam)
-            log_prob_if_not_spam += math.log(1.0 - prob_if_not_spam)
+        prob_if_spam = [v[0] for v in df_word_probs.loc[not_message_words][['prob_is_spam']].values]
+        log_prob_if_spam += math.log(sum(prob_if_spam))
 
+        prob_if_not_spam = [v[0] for v in df_word_probs.loc[not_message_words][['prob_not_spam']].values]
+        log_prob_if_not_spam += math.log(sum(prob_if_not_spam))        
+
+    # Return
     prob_if_spam = math.exp(log_prob_if_spam)
     prob_if_not_spam = math.exp(log_prob_if_not_spam)
     return prob_if_spam / (prob_if_spam + prob_if_not_spam)
-
+    
 
 class NaiveBayesClassifier:
 
@@ -87,7 +105,8 @@ class NaiveBayesClassifier:
 
 def get_subject_data(path):
     data = []
-    regex = re.compile(r"^(Subject:|From(:|)|Received:)\s+")
+    #regex = re.compile(r"^(Subject:|From(:|)|Received:)\s+")
+    regex = re.compile(r"^(Subject:)\s+")
 
     # glob.glob returns every filename that matches the wildcarded path
     for fn in glob.glob(path):
@@ -98,7 +117,8 @@ def get_subject_data(path):
             for line in file:
                 if re.match(regex, line):
                     email.append(regex.sub("", line).strip())
-            data.append((' '.join(email), is_spam))
+            if len(email) > 0:
+                data.append((' '.join(email), is_spam))
 
     return data
 
@@ -112,6 +132,7 @@ def train_and_test_model(path):
     print(f'data: {len(data)}')
 
     train_data, test_data = split_data(data, 0.75)
+
     print(f'Train data size: {len(train_data)}')
     print(f'Test data size: {len(test_data)}')
 
@@ -121,7 +142,7 @@ def train_and_test_model(path):
     classified = [(subject, is_spam, classifier.classify(subject))
               for subject, is_spam in test_data]
 
-    counts = Counter((is_spam, spam_probability > 0.5) # (actual, predicted)
+    counts = Counter((is_spam, spam_probability > 0.7) # (actual, predicted)
                      for _, is_spam, spam_probability in classified)
 
     print(counts)
@@ -133,10 +154,8 @@ def train_and_test_model(path):
     print("\nspammiest_hams", spammiest_hams)
     print("\nhammiest_spams", hammiest_spams)
 
-    words = sorted(classifier.word_probs, key=p_spam_given_word)
-
-    spammiest_words = words[-5:]
-    hammiest_words = words[:5]
+    spammiest_words = classifier.word_probs.sort_values(by='prob_is_spam').tail().index.to_list()
+    hammiest_words = classifier.word_probs.sort_values(by='prob_not_spam').tail().index.to_list()
 
     print("\nspammiest_words", spammiest_words)
     print("\nhammiest_words", hammiest_words)
