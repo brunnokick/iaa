@@ -66,10 +66,10 @@ def spam_probability(df_word_probs, message) -> float:
         # Log for words not in message
         not_message_words = [n for n in df_word_probs.index.to_list() if n not in list(message_words)]
 
-        prob_if_spam = [v[0] for v in df_word_probs.loc[not_message_words][['prob_is_spam']].values]
+        prob_if_spam = [1.0 - v[0] for v in df_word_probs.loc[not_message_words][['prob_is_spam']].values]
         log_prob_if_spam += math.log(sum(prob_if_spam))
 
-        prob_if_not_spam = [v[0] for v in df_word_probs.loc[not_message_words][['prob_not_spam']].values]
+        prob_if_not_spam = [1.0 - v[0] for v in df_word_probs.loc[not_message_words][['prob_not_spam']].values]
         log_prob_if_not_spam += math.log(sum(prob_if_not_spam))        
 
     # Return
@@ -105,8 +105,7 @@ class NaiveBayesClassifier:
 
 def get_subject_data(path):
     data = []
-    #regex = re.compile(r"^(Subject:|From(:|)|Received:)\s+")
-    regex = re.compile(r"^(Subject:)\s+")
+    regex = re.compile(r"^(Subject:|From(:|)|Received:)\s+")
 
     # glob.glob returns every filename that matches the wildcarded path
     for fn in glob.glob(path):
@@ -142,7 +141,7 @@ def train_and_test_model(path):
     classified = [(subject, is_spam, classifier.classify(subject))
               for subject, is_spam in test_data]
 
-    counts = Counter((is_spam, spam_probability > 0.7) # (actual, predicted)
+    counts = Counter((is_spam, spam_probability > 0.5) # (actual, predicted)
                      for _, is_spam, spam_probability in classified)
 
     print(counts)
