@@ -2,31 +2,20 @@ from collections import Counter, defaultdict
 from machine_learning import split_data
 import math, random, re, glob
 import pandas as pd
+from nltk.stem import PorterStemmer
+
 '''
     data: 3302
     Train data size: 2472
     Test data size: 830
-
-    Execucao com os parametros default
-    e com uma correcao sobre identificar somente o primeiro subject por email
-        Counter({(False, False): 673, (True, True): 85, 
-        (True, False): 46, (False, True): 26})
-   
-    Adicionado FROM e RECEIVED
-        Counter({(False, False): 687, (True, True): 111, 
-        (True, False): 20, (False, True): 12})
-
-    Migracao para o PANDAS, foi necessário voltar para 
-        buscar somente o subject se não ia cagar com tudo.
-    Counter({(False, False): 632, (True, True): 82, 
-        (False, True): 67, (True, False): 49})
 '''
 
-
 def tokenize(message):
-    message = message.lower()                       # convert to lowercase
-    all_words = re.findall("[a-z0-9']+", message)   # extract the words
-    return set(all_words)                           # remove duplicates
+    ps = PorterStemmer()
+    message = message.lower()   # convert to lowercase
+    all_words = message.split() # extract the words
+    # remove duplicates and stem words
+    return [ps.stem(word) for word in set(all_words)] 
 
 
 def count_words(training_set) -> pd.DataFrame:
@@ -38,6 +27,12 @@ def count_words(training_set) -> pd.DataFrame:
     df = pd.DataFrame(counts).T.rename(columns={0:'is_spam', 1:'not_spam'})
     df['total'] = df['is_spam'] + df['not_spam']
     df = df.sort_values(by='total')
+
+    '''Considerar somente palavras com
+        mais de 3 ocorrencias e menos de 38,
+        limites definidos com base no experimento
+    '''
+    df = df[(df['total'] >= 3) & (df['total'] <= 38)]
     return df
 
 def word_probabilities(df, total_spams, total_non_spams, k=0.5):
@@ -141,7 +136,7 @@ def train_and_test_model(path):
     classified = [(subject, is_spam, classifier.classify(subject))
               for subject, is_spam in test_data]
 
-    counts = Counter((is_spam, spam_probability > 0.5) # (actual, predicted)
+    counts = Counter((is_spam, spam_probability > .8) # (actual, predicted)
                      for _, is_spam, spam_probability in classified)
 
     print(counts)
