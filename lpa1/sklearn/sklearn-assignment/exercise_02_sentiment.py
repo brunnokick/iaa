@@ -55,6 +55,9 @@ def print_metrics(model, predicted, y_test):
     print()
     print("Confusion matrix:\n%s" % metrics.confusion_matrix(y_test, predicted))
 
+
+# %% [markdown]
+## Pipelines
 # %%
 class ModelBase:
     def __init__(self):
@@ -70,8 +73,55 @@ class ModelBase:
         return self.model.predict(x_test)
 
 
+# %% [markdown]
+### Pipeline A
 # %%
+class Model_A(ModelBase):
+    def __init__(self):
+        super().__init__()
+        self.model = Pipeline([
+            ('vect', CountVectorizer()),
+            ('tfidf', TfidfTransformer()),
+            ('clf', MultinomialNB())])
+
+    def params(self):
+        return {
+            'tfidf__norm': ['l1', 'l2', 'max'],
+            'tfidf__use_idf': (False, True),
+            'tfidf__smooth_idf': (False, True),
+            'tfidf__sublinear_tf': (False, True),
+            # 'clf__alpha': [v/10 for v in range(11)], não é possível usar alpha < 1.0
+            'clf__fit_prior': (False, True)
+        }
+
+
+# %% [markdown]
+### Pipeline B
+# %%
+class Model_B(ModelBase):
+    def __init__(self):
+        super().__init__()
+        self.model = Pipeline([
+            ('vect', CountVectorizer()),
+            ('tfidf', TfidfTransformer()),
+            ('clf', LinearSVC())])
+
+    def params(self):
+        return {
+            'tfidf__norm': ['l1', 'l2', 'max'],
+            'tfidf__use_idf': (False, True),
+            'tfidf__smooth_idf': (False, True),
+            'tfidf__sublinear_tf': (False, True),
+            'clf__penalty' : ['l1', 'l2'],
+            'clf__loss' : ['hinge', 'squared_hinge'],
+            'clf__dual': (False, True),
+            #'clf__C' : [.0, .5, .1],
+            #'clf__multi_class ': ['ovr', 'crammer_singer']
+        }
+
+# %% [markdown]
 ### Pipeline C
+# %%
 class Model_C(ModelBase):
     def __init__(self):
         super().__init__()
@@ -88,69 +138,6 @@ class Model_C(ModelBase):
             'tfidf__sublinear_tf': (False, True),
             'clf__criterion' : ["gini", "entropy"],
             'clf__splitter' : ["best", "random"]
-        }
-
-
-# %% [markdown]
-## Pipelines
-### Pipeline A
-
-# %%
-class Model_A:
-    def __init__(self):
-        self.model = Pipeline([
-            ('vect', CountVectorizer()),
-            ('tfidf', TfidfTransformer()),
-            ('clf', MultinomialNB())])
-
-    def __call__(self):
-        return self.model
-
-    def fit(self, x_train, y_train):
-        self.model.fit(x_train, y_train)
-
-    def predict(self, x_test):
-        return self.model.predict(x_test)
-
-    def params(self):
-        return {
-            'tfidf__norm': ['l1', 'l2', 'max'],
-            'tfidf__use_idf': (False, True),
-            'tfidf__smooth_idf': (False, True),
-            'tfidf__sublinear_tf': (False, True),
-            # 'clf__alpha': [v/10 for v in range(11)], não é possível usar alpha < 1.0
-            'clf__fit_prior': (False, True)
-        }
-
-
-# %%
-class Model_B:
-    def __init__(self):
-        self.model = Pipeline([
-            ('vect', CountVectorizer()),
-            ('tfidf', TfidfTransformer()),
-            ('clf', LinearSVC())])
-
-    def __call__(self):
-        return self.model
-
-    def fit(self, x_train, y_train):
-        self.model.fit(x_train, y_train)
-
-    def predict(self, x_test):
-        return self.model.predict(x_test)
-
-    def params(self):
-        return {
-            'tfidf__norm': ['l1', 'l2', 'max'],
-            'tfidf__use_idf': (False, True),
-            'tfidf__smooth_idf': (False, True),
-            'tfidf__sublinear_tf': (False, True),
-            'clf__penalty' : ['l1', 'l2'],
-            'clf__loss' : ['hinge', 'squared_hinge'],
-            'clf__dual': (False, True),
-            #'clf__C' : [.0, .5, .1],
-            #'clf__multi_class ': ['ovr', 'crammer_singer']
         }
 
 
